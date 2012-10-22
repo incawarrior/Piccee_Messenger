@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Piccee Messenger</title>
+
+        <link rel="stylesheet" href="scripts/foundation/stylesheets\foundation.min.css">
+
+    </head>
+    <body>
+        <div class="row">
+            <div class="twelve columns">
+                <div class="four columns" style="background-color: #f00">
+                    <div id="conversations" class="six columns">
+                    </div>                   
+                </div>
+                <div class="six columns" style="background-color: #952ee6">
+                    <div id="activeConversation" class="six columns">
+                    </div>                   
+                </div>
+                <div class="two columns" style="background-color: #4cff00">
+                   <div id="participantsProfile"></div>
+                </div>
+            </div>
+        </div>
+        
+        <script src="scripts/system/jquery-1.8.2.min.js"></script>
+        <script src="http://www.parsecdn.com/js/parse-1.1.6.min.js"></script>
+        <script>
+            //EXAMPLE
+            //https://projects.invisionapp.com/share/4A5WK2XJ#/2710170
+            $(document).ready(function () {
+
+                // Piccee Dev
+                appId = 'yyQt1Xp0x9mKj5dAcmIZampwn3G4MC3iYawdDF9g',
+                jsKey = 'NWAbLes61CspfaPCEe8RPAnFAamdk3PYEAmYjbCy'
+
+                Parse.initialize(appId, jsKey);
+
+                var initiator = "AdYMchLaiH";
+                var participant = "LN6aIfzeIG";
+
+                var UserConversation = Parse.Object.extend("UserConversation");
+                var q1 = new Parse.Query(UserConversation);
+                var q2 = new Parse.Query(UserConversation);
+
+                q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
+                q1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
+
+                q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
+                q2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
+
+                var query = new Parse.Query.or(q1, q2);
+                var html = "";
+
+                query.find({
+                    success: function (msgs) {
+                        //alert("Messages where retrieved.");
+
+                        for (var i in msgs) {
+                            html += "<div>" + msgs[i].id + "</div>"
+                        }
+
+                        $("#activeConversation").html(html);
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred.");
+                    }
+                });
+            })
+
+
+        </script>
+    </body>
+</html>
