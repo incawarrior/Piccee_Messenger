@@ -12,7 +12,7 @@
         <div class="row">
             <div class="twelve columns">
                 <div class="four columns" style="background-color: #f00">
-                    <div id="conversations" class="six columns">
+                    <div id="myConversations" class="six columns">
                     </div>                   
                 </div>
                 <div class="six columns" style="background-color: #952ee6">
@@ -28,28 +28,33 @@
         <script src="scripts/system/jquery-1.8.2.min.js"></script>
         <script src="http://www.parsecdn.com/js/parse-1.1.6.min.js"></script>
         <script>
+
+            var initiator = "AdYMchLaiH";
+            //var initiator = "L63FLWHQip";
+            var participant = "LN6aIfzeIG";
+            var UserConversation;
+            var q1;
+            var q2;
+
             //EXAMPLE
             //https://projects.invisionapp.com/share/4A5WK2XJ#/2710170
             $(document).ready(function () {
 
-                // Piccee Dev
-                appId = 'yyQt1Xp0x9mKj5dAcmIZampwn3G4MC3iYawdDF9g',
-                jsKey = 'NWAbLes61CspfaPCEe8RPAnFAamdk3PYEAmYjbCy'
+                // Piccee-Dev
+                var appId = 'yyQt1Xp0x9mKj5dAcmIZampwn3G4MC3iYawdDF9g';
+                var jsKey = 'NWAbLes61CspfaPCEe8RPAnFAamdk3PYEAmYjbCy';
 
                 Parse.initialize(appId, jsKey);
 
-                var initiator = "AdYMchLaiH";
-                var participant = "LN6aIfzeIG";
+                UserConversation = Parse.Object.extend("UserConversation");
+                q1 = new Parse.Query(UserConversation);
+                q2 = new Parse.Query(UserConversation);
 
-                var UserConversation = Parse.Object.extend("UserConversation");
-                var q1 = new Parse.Query(UserConversation);
-                var q2 = new Parse.Query(UserConversation);
+                q1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
+                q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
 
-                q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
-                q1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
-
-                q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
-                q2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
+                q2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
+                q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
 
                 var query = new Parse.Query.or(q1, q2);
                 var html = "";
@@ -68,8 +73,49 @@
                         alert("An error occurred.");
                     }
                 });
+
+                GetConversations();
+
             })
 
+            function GetConversation() {
+            }
+
+            function GetConversations() {
+                var UserMessage = Parse.Object.extend("UserMessage");
+
+                var con1 = new Parse.Query(UserMessage);
+                var con2 = new Parse.Query(UserMessage);
+
+                con1.equalTo('fromUser', { __type: 'Pointer', className: '_User', objectId: initiator });
+                con2.equalTo('toUser', { __type: 'Pointer', className: '_User', objectId: initiator });
+
+                var query = new Parse.Query.or(con1, con2);
+                query.descending("updatedAt");
+
+                var html = "";
+
+                //This is needed since Parse doesn't have Distinct capabilities.
+                var previousConversation = "";
+
+                query.find({
+                    success: function (conversations) {
+                        for (var i in conversations) {
+                            //We only want to display one conversation so
+                            //make sure we only get the latest conversation.
+                            if (previousConversation != conversations[i].attributes.userConversation.id) {
+                                html += "<div>" + conversations[i].attributes.message + "</div>"
+                            }
+                            previousConversation = conversations[i].attributes.userConversation.id;
+                        }
+
+                        $("#myConversations").html(html);
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred")
+                    }
+                });
+            }
 
         </script>
     </body>
