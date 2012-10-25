@@ -33,8 +33,10 @@
             //var initiator = "L63FLWHQip";
             var participant = "LN6aIfzeIG";
             var UserConversation;
+            var User;
             var q1;
             var q2;
+            var currentUser;
 
             //EXAMPLE
             //https://projects.invisionapp.com/share/4A5WK2XJ#/2710170
@@ -47,6 +49,7 @@
                 Parse.initialize(appId, jsKey);
 
                 UserConversation = Parse.Object.extend("UserConversation");
+
                 q1 = new Parse.Query(UserConversation);
                 q2 = new Parse.Query(UserConversation);
 
@@ -94,6 +97,7 @@
                 query.descending("updatedAt");
 
                 var html = "";
+                var username = "";
 
                 //This is needed since Parse doesn't have Distinct capabilities.
                 var previousConversation = "";
@@ -104,7 +108,9 @@
                             //We only want to display one conversation so
                             //make sure we only get the latest conversation.
                             if (previousConversation != conversations[i].attributes.userConversation.id) {
-                                html += "<div>" + conversations[i].attributes.message + "</div>"
+                                //Get the username.
+                                username = GetUserName(conversations[i].attributes.toUser.id);
+                                html += "<div>" + "From: " + username + " " + conversations[i].attributes.message + "</div>"
                             }
                             previousConversation = conversations[i].attributes.userConversation.id;
                         }
@@ -112,9 +118,24 @@
                         $("#myConversations").html(html);
                     },
                     error: function (object, error) {
-                        alert("An error occurred")
+                        alert("An error occurred");
                     }
                 });
+            }
+
+            function GetUserName(userID) {
+                var u = "";
+                
+                var queryUser = new Parse.Query(Parse.User);
+                queryUser.equalTo("objectId", "AdYMchLaiH");
+
+                queryUser.first({
+                    success: function (user) {
+                        u = user.attributes.username;
+                    }
+                });
+
+                return u;
             }
 
         </script>
