@@ -26,16 +26,16 @@
         </div>
         
         <script src="scripts/system/jquery-1.8.2.min.js"></script>
+        <!--<script src="scripts/system/handlebars-1.0.0.beta.6.js"></script>
+        <script src="scripts/system/ember-1.0.pre.min.js"></script>
+        <script src="scripts/pages/app.js"></script>-->
         <script src="http://www.parsecdn.com/js/parse-1.1.6.min.js"></script>
+
         <script>
 
             var initiator = "AdYMchLaiH";
             //var initiator = "L63FLWHQip";
             var participant = "LN6aIfzeIG";
-            var UserConversation;
-            var User;
-            var q1;
-            var q2;
             var currentUser;
 
             //EXAMPLE
@@ -48,26 +48,39 @@
 
                 Parse.initialize(appId, jsKey);
 
-                UserConversation = Parse.Object.extend("UserConversation");
+                //GetConversation();
+                GetConversations();
+            })
+
+            function GetConversation() {
+                var UserConversation = Parse.Object.extend("UserConversation");
+                var q1;
+                var q2;
 
                 q1 = new Parse.Query(UserConversation);
                 q2 = new Parse.Query(UserConversation);
 
+                //For Testing: Since we don't have the actual user we have to create a pointer to the User Object.
                 q1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
-                q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
-
+                //q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
                 q2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
-                q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
+                //q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
 
-                var query = new Parse.Query.or(q1, q2);
+                //This should be user for production.
+                //q1.equalTo = ('initiator', initiator);
+                //q1.equalTo = ('participant', participant);
+                //q2.equalTo = ('participant', initiator);
+                //q2.equalTo = ('initiator', participant);
+
+                var query = Parse.Query.or(q1, q2);
                 var html = "";
 
                 query.find({
-                    success: function (msgs) {
+                    success: function (con) {
                         //alert("Messages where retrieved.");
 
-                        for (var i in msgs) {
-                            html += "<div>" + msgs[i].id + "</div>"
+                        for (var i in con) {
+                            html += "<div>" + con[i].id + "</div>"
                         }
 
                         $("#activeConversation").html(html);
@@ -76,46 +89,98 @@
                         alert("An error occurred.");
                     }
                 });
-
-                GetConversations();
-
-            })
-
-            function GetConversation() {
             }
 
             function GetConversations() {
-                var UserMessage = Parse.Object.extend("UserMessage");
+                var UserConversation = Parse.Object.extend("UserConversation");
 
-                var con1 = new Parse.Query(UserMessage);
-                var con2 = new Parse.Query(UserMessage);
+                var con1 = new Parse.Query(UserConversation);
+                var con2 = new Parse.Query(UserConversation);
 
-                con1.equalTo('fromUser', { __type: 'Pointer', className: '_User', objectId: initiator });
-                con2.equalTo('toUser', { __type: 'Pointer', className: '_User', objectId: initiator });
+                con1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
+                con2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
 
+                //We only want to display one conversation so
+                //make sure we only get the latest conversation.
                 var query = new Parse.Query.or(con1, con2);
                 query.descending("updatedAt");
 
-                var html = "";
+                var htmlConversations = "";
+                var htmlMessages = "";
                 var username = "";
 
-                //This is needed since Parse doesn't have Distinct capabilities.
-                var previousConversation = "";
+                var userIDs = new Array();
+                var userNames = new Array();
+                var conversations = new Array();
+
+                var currentIndex = 0;
+                var counter = 0;
+                var talkingTo = "";
 
                 query.find({
-                    success: function (conversations) {
-                        for (var i in conversations) {
-                            //We only want to display one conversation so
-                            //make sure we only get the latest conversation.
-                            if (previousConversation != conversations[i].attributes.userConversation.id) {
-                                //Get the username.
-                                username = GetUserName(conversations[i].attributes.toUser.id);
-                                html += "<div>" + "From: " + username + " " + conversations[i].attributes.message + "</div>"
+                    success: function (convers) {
+                        for (var i in convers) {
+                            //Extract the person we are conversating with...
+
+                            talkingTo = initiator == convers[i].attributes.initiator.id ?
+                                                        convers[i].attributes.participant.id :
+                                                        convers[i].attributes.initiator.id;
+
+                            //Don't add duplicates.
+                            if ($.inArray(talkingTo, userIDs) < 0) {
+                                userIDs[counter] = talkingTo;
+                                conversations[counter] = convers[i].id;
+                                counter++;
+                                //htmlConversations += "<div>" + "Talking To: " + talkingTo + "</div>"
                             }
-                            previousConversation = conversations[i].attributes.userConversation.id;
                         }
 
-                        $("#myConversations").html(html);
+                        //Now that we have all the users we need to get the username.
+                        //----------------------------------------------------------------------------------------
+                        var User = Parse.Object.extend("User");
+                        var userQuery = new Parse.Query(User);
+
+                        userQuery.containedIn("objectId", userIDs);
+                        userQuery.find({
+                            success: function (friends) {
+                                for (var f in friends) {
+                                    currentIndex = $.inArray(friends[f].id, userIDs);
+
+                                    if (currentIndex >= 0) {
+                                        userNames[currentIndex] = friends[f].attributes.username;
+                                        htmlConversations += "<div>UserID: " + userIDs[currentIndex] + " Username: " + userNames[currentIndex] + " ConversationID: " + conversations[currentIndex] + "</div>";
+                                    }
+                                }
+                                $("#myConversations").html(htmlConversations);
+
+                                //Finally get the latest messages.
+                                //--------------------------------------------------------------------------------
+                                var UserMessage = Parse.Object.extend("UserMessage");
+                                var userMessageQuery = new Parse.Query(UserMessage);
+
+                                userMessageQuery.descending("updatedAt");
+                                userMessageQuery.containedIn("userConversation", conversations);
+                                userMessageQuery.find({
+                                    success: function (msgs) {
+                                        for (var m in msgs) {
+                                            currentIndex = $.inArray(msgs[m]);
+                                            htmlMessages += "<div>ConversationID: " + msgs[m].attributes.userConversion + " MessageID: " + msgs[m].id + " Message: " + msgs[m].attributes.message + "</div>";
+                                        }
+                                        
+                                        $("#activeConversation").html(htmlMessages);
+                                    },
+                                    error: function (object, error) {
+                                        alert("An error occurred");
+                                    }
+                                });
+
+
+                            },
+                            error: function (object, error) {
+                                alert("An error occurred");
+                            }
+                        });
+                        //----------------------------------------------------------------------------------------
                     },
                     error: function (object, error) {
                         alert("An error occurred");
@@ -125,7 +190,7 @@
 
             function GetUserName(userID) {
                 var u = "";
-                
+
                 var queryUser = new Parse.Query(Parse.User);
                 queryUser.equalTo("objectId", "AdYMchLaiH");
 
