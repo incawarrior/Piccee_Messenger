@@ -92,6 +92,20 @@
             }
 
             function GetConversations() {
+                var htmlConversations = "";
+                var htmlMessages = "";
+                var username = "";
+
+                var userIDs = new Array();
+                var userNames = new Array();
+                var conversations = new Array();
+                var conversationIDs = new Array();
+
+                var currentIndex = 0;
+                var counter = 0;
+                var talkingTo = "";
+                var talkingTo2 = "";
+
                 var UserConversation = Parse.Object.extend("UserConversation");
 
                 var con1 = new Parse.Query(UserConversation);
@@ -105,37 +119,24 @@
                 var query = new Parse.Query.or(con1, con2);
                 query.descending("updatedAt");
 
-                var htmlConversations = "";
-                var htmlMessages = "";
-                var username = "";
-
-                var userIDs = new Array();
-                var userNames = new Array();
-                var conversations = new Array();
-
-                var currentIndex = 0;
-                var counter = 0;
-                var talkingTo = "";
-
                 query.find({
                     success: function (convers) {
                         for (var i in convers) {
                             //Extract the person we are conversating with...
-
                             talkingTo = initiator == convers[i].attributes.initiator.id ?
                                                         convers[i].attributes.participant.id :
                                                         convers[i].attributes.initiator.id;
-
+                            //Curious why the user object isn't available in the initiator or participator
+                            //since it isn't just work with the User ID (ObjectID).                                                        
                             //Don't add duplicates.
                             if ($.inArray(talkingTo, userIDs) < 0) {
                                 userIDs[counter] = talkingTo;
-                                conversations[counter] = convers[i].id;
+                                conversations[counter] = convers[i];
                                 counter++;
-                                //htmlConversations += "<div>" + "Talking To: " + talkingTo + "</div>"
                             }
                         }
 
-                        //Now that we have all the users we need to get the username.
+                        //Now that we have all the users we need to get the name.
                         //----------------------------------------------------------------------------------------
                         var User = Parse.Object.extend("User");
                         var userQuery = new Parse.Query(User);
@@ -147,11 +148,11 @@
                                     currentIndex = $.inArray(friends[f].id, userIDs);
 
                                     if (currentIndex >= 0) {
-                                        userNames[currentIndex] = friends[f].attributes.username;
-                                        htmlConversations += "<div>UserID: " + userIDs[currentIndex] + " Username: " + userNames[currentIndex] + " ConversationID: " + conversations[currentIndex] + "</div>";
+                                        userNames[currentIndex] = friends[f].attributes.firstName;
+                                        //htmlConversations += "<div>UserID: " + userIDs[currentIndex] + " Username: " + userNames[currentIndex] + " ConversationID: " + conversations[currentIndex].id + "</div>";
                                     }
                                 }
-                                $("#myConversations").html(htmlConversations);
+                                //$("#myConversations").html(htmlConversations);
 
                                 //Finally get the latest messages.
                                 //--------------------------------------------------------------------------------
@@ -160,21 +161,27 @@
 
                                 userMessageQuery.descending("updatedAt");
                                 userMessageQuery.containedIn("userConversation", conversations);
+                                counter = 0;
                                 userMessageQuery.find({
                                     success: function (msgs) {
                                         for (var m in msgs) {
-                                            currentIndex = $.inArray(msgs[m]);
-                                            htmlMessages += "<div>ConversationID: " + msgs[m].attributes.userConversion + " MessageID: " + msgs[m].id + " Message: " + msgs[m].attributes.message + "</div>";
+                                            //htmlMessages += "<div>ConversationID: " + msgs[m].attributes.userConversation.id + " MessageID: " + msgs[m].id + " Message: " + msgs[m].attributes.message + "</div>";
+
+                                            //Only add in the latest message.
+                                            if ($.inArray(msgs[m].attributes.userConversation.id, conversationIDs) == -1) {
+                                                htmlConversations += "<div id='" + msgs[m].attributes.userConversation.id + "' class='conversationContainer'><div class='userPic'></div><div class='participantInfo'>" + userNames[counter] + "</div/><div class='latestMessage'>" + msgs[m].attributes.message + "</div><div class='msgTimeFrame'></div></div>";
+                                                conversationIDs[counter] = msgs[m].attributes.userConversation.id;
+                                                counter++;
+                                            }
                                         }
-                                        
-                                        $("#activeConversation").html(htmlMessages);
+
+                                        $("#myConversations").html(htmlConversations);
+                                        //$("#activeConversation").html(htmlMessages);
                                     },
                                     error: function (object, error) {
                                         alert("An error occurred");
                                     }
                                 });
-
-
                             },
                             error: function (object, error) {
                                 alert("An error occurred");
