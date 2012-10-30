@@ -38,8 +38,6 @@
             var participant = "LN6aIfzeIG";
             var currentUser;
 
-            //EXAMPLE
-            //https://projects.invisionapp.com/share/4A5WK2XJ#/2710170
             $(document).ready(function () {
 
                 // Piccee-Dev
@@ -48,11 +46,101 @@
 
                 Parse.initialize(appId, jsKey);
 
-                //GetConversation();
                 GetConversations();
             })
 
-            function GetConversation() {
+            function GetConversation(item) {
+                var conversationID = $(item).attr("id");
+
+                var UserConversation = Parse.Object.extend("UserConversation");
+                var query = new Parse.Query(UserConversation);
+                var htmlMessages = "";
+                var conversation;
+                var communicatingWith;
+                var pics = new Array();
+                counter = 0;
+
+                query.equalTo("objectId", conversationID);
+                query.find({
+                    success: function (convers) {
+                        conversation = convers[0];
+
+                        //Get the info of the person we are conversating with...
+                        if (conversation.attributes.initiator.id == initiator) {
+                            communicatingWith = conversation.attributes.participant;
+                        }
+                        else {
+                            communicatingWith = conversation.attributes.initiator;
+                        }
+
+                        var User = Parse.Object.extend("User");
+                        var userQuery = new Parse.Query(User);
+                        userQuery.get(communicatingWith.id, {
+                            success: function (user) {
+                                communicatingWith = user;
+
+
+
+                                var Message = Parse.Object.extend("UserMessage");
+                                var Photo = Parse.Object.extend("UserPhoto");
+                                var innerQuery = new Parse.Query(Message);
+                                innerQuery.equalTo("userConversation", conversation);
+                                var relQuery = new Parse.Query(Photo);
+                                relQuery.matchesQuery("userPhoto", innerQuery);
+                                relQuery.find({
+                                   success: function (retrievedMsgs)  {
+                                       alert("got it!")
+                                   }
+                                });
+
+
+
+
+
+
+                                var UserMessage = Parse.Object.extend("UserMessage");
+                                var msgQuery = new Parse.Query(UserMessage);
+
+                                msgQuery.descending("updatedAt");
+                                msgQuery.equalTo("userConversation", conversation);
+
+                                //Get all the messages for the queried conversation.
+                                msgQuery.find({
+                                    success: function (msgs) {
+                                        for (var i in msgs) {
+                                            //Get an array of all the pictures in the retrieved messages.
+                                            if (msgs[i].attributes.userPhoto != null) {
+                                                pics[counter] = msgs[i].attributes.userPhoto;
+                                                counter++;
+                                            }
+
+                                            var UserPhoto = Parse.Object.extend("UserPhoto");
+                                            var photoQuery = new Parse.Query(UserPhoto);
+                                            photoQuery.containedIn()
+
+
+                                            //Extract the messages...
+                                            htmlMessages += "<div>" + communicatingWith.attributes.firstName + " MessageID: " + msgs[i].id + " Message: " + msgs[i].attributes.message + "</div>";
+                                        }
+                                        $("#activeConversation").html(htmlMessages);
+                                    },
+                                    error: function (object, error) {
+                                        alert("An error occurred");
+                                    }
+                                })
+                            },
+                            error: function (object, error) {
+                                alert("An error occurred");
+                            }
+                        })
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred");
+                    }
+                });
+            }
+
+            function GetOldConversation(conversationID) {
                 var UserConversation = Parse.Object.extend("UserConversation");
                 var q1;
                 var q2;
@@ -124,8 +212,8 @@
                         for (var i in convers) {
                             //Extract the person we are conversating with...
                             talkingTo = initiator == convers[i].attributes.initiator.id ?
-                                                        convers[i].attributes.participant.id :
-                                                        convers[i].attributes.initiator.id;
+                                                    convers[i].attributes.participant.id :
+                                                    convers[i].attributes.initiator.id;
                             //Curious why the user object isn't available in the initiator or participator
                             //since it isn't just work with the User ID (ObjectID).                                                        
                             //Don't add duplicates.
@@ -167,9 +255,17 @@
                                         for (var m in msgs) {
                                             //htmlMessages += "<div>ConversationID: " + msgs[m].attributes.userConversation.id + " MessageID: " + msgs[m].id + " Message: " + msgs[m].attributes.message + "</div>";
 
+                                            var backcolor = "red";
+                                            if (counter % 2 == 0) {
+                                                backcolor = "blue";
+                                            }
+                                            else {
+                                                backcolor = "red";
+                                            }
+
                                             //Only add in the latest message.
                                             if ($.inArray(msgs[m].attributes.userConversation.id, conversationIDs) == -1) {
-                                                htmlConversations += "<div id='" + msgs[m].attributes.userConversation.id + "' class='conversationContainer'><div class='userPic'></div><div class='participantInfo'>" + userNames[counter] + "</div/><div class='latestMessage'>" + msgs[m].attributes.message + "</div><div class='msgTimeFrame'></div></div>";
+                                                htmlConversations += "<div onclick='GetConversation(this);' id='" + msgs[m].attributes.userConversation.id + "' class='conversationContainer' style=" + '"background-color: ' + backcolor + '"' + "><div class='userPic'></div><div class='participantInfo'>" + userNames[counter] + "</div/><div class='latestMessage'>" + msgs[m].attributes.message + "</div><div class='msgTimeFrame'></div></div>";
                                                 conversationIDs[counter] = msgs[m].attributes.userConversation.id;
                                                 counter++;
                                             }
