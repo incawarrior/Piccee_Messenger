@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Piccee Messenger</title>
+
+        <link rel="stylesheet" href="scripts/foundation/stylesheets\foundation.min.css">
+
+    </head>
+    <body>
+        <div class="row">
+            <div class="twelve columns">
+                <div class="four columns" style="background-color: #f00">
+                    <div id="myConversations" class="six columns">
+                    </div>                   
+                </div>
+                <div class="six columns" style="background-color: #952ee6">
+                    <div id="activeConversation" class="six columns">
+                    </div>                   
+                </div>
+                <div class="two columns" style="background-color: #4cff00">
+                   <div id="participantsProfile"></div>
+                </div>
+            </div>
+        </div>
+        
+        <script src="scripts/system/jquery-1.8.2.min.js"></script>
+        <!--<script src="scripts/system/handlebars-1.0.0.beta.6.js"></script>
+        <script src="scripts/system/ember-1.0.pre.min.js"></script>
+        <script src="scripts/pages/app.js"></script>-->
+        <script src="http://www.parsecdn.com/js/parse-1.1.6.min.js"></script>
+        <script src="scripts/coffee/conversation.js"></script>
+
+        <script>
+
+            var initiator = "AdYMchLaiH";
+            //var initiator = "L63FLWHQip";
+            var participant = "LN6aIfzeIG";
+            var currentUser;
+
+            $(document).ready(function () {
+
+                // Piccee-Dev
+                var appId = 'yyQt1Xp0x9mKj5dAcmIZampwn3G4MC3iYawdDF9g';
+                var jsKey = 'NWAbLes61CspfaPCEe8RPAnFAamdk3PYEAmYjbCy';
+
+                Parse.initialize(appId, jsKey);
+
+                GetConversations();
+            })
+
+            function GetConversation(item) {
+                var conversationID = $(item).attr("id");
+
+                var UserConversation = Parse.Object.extend("UserConversation");
+                var query = new Parse.Query(UserConversation);
+                var htmlMessages = "";
+                var conversation;
+                var communicatingWith;
+                var pics = new Array();
+                counter = 0;
+
+                query.equalTo("objectId", conversationID);
+                query.find({
+                    success: function (convers) {
+                        conversation = convers[0];
+
+                        //Get the info of the person we are conversating with...
+                        if (conversation.attributes.initiator.id == initiator) {
+                            communicatingWith = conversation.attributes.participant;
+                        }
+                        else {
+                            communicatingWith = conversation.attributes.initiator;
+                        }
+
+                        var User = Parse.Object.extend("User");
+                        var userQuery = new Parse.Query(User);
+                        userQuery.get(communicatingWith.id, {
+                            success: function (user) {
+                                communicatingWith = user;
+
+
+
+                                var Message = Parse.Object.extend("UserMessage");
+                                var Photo = Parse.Object.extend("UserPhoto");
+                                var innerQuery = new Parse.Query(Message);
+                                innerQuery.equalTo("userConversation", conversation);
+                                var relQuery = new Parse.Query(Photo);
+                                relQuery.matchesQuery("userPhoto", innerQuery);
+                                relQuery.find({
+                                   success: function (retrievedMsgs)  {
+                                       alert("got it!")
+                                   }
+                                });
+
+
+
+
+
+
+                                var UserMessage = Parse.Object.extend("UserMessage");
+                                var msgQuery = new Parse.Query(UserMessage);
+
+                                msgQuery.descending("updatedAt");
+                                msgQuery.equalTo("userConversation", conversation);
+
+                                //Get all the messages for the queried conversation.
+                                msgQuery.find({
+                                    success: function (msgs) {
+                                        for (var i in msgs) {
+                                            //Get an array of all the pictures in the retrieved messages.
+                                            if (msgs[i].attributes.userPhoto != null) {
+                                                pics[counter] = msgs[i].attributes.userPhoto;
+                                                counter++;
+                                            }
+
+                                            var UserPhoto = Parse.Object.extend("UserPhoto");
+                                            var photoQuery = new Parse.Query(UserPhoto);
+                                            photoQuery.containedIn()
+
+
+                                            //Extract the messages...
+                                            htmlMessages += "<div>" + communicatingWith.attributes.firstName + " MessageID: " + msgs[i].id + " Message: " + msgs[i].attributes.message + "</div>";
+                                        }
+                                        $("#activeConversation").html(htmlMessages);
+                                    },
+                                    error: function (object, error) {
+                                        alert("An error occurred");
+                                    }
+                                })
+                            },
+                            error: function (object, error) {
+                                alert("An error occurred");
+                            }
+                        })
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred");
+                    }
+                });
+            }
+
+            function GetOldConversation(conversationID) {
+                var UserConversation = Parse.Object.extend("UserConversation");
+                var q1;
+                var q2;
+
+                q1 = new Parse.Query(UserConversation);
+                q2 = new Parse.Query(UserConversation);
+
+                //For Testing: Since we don't have the actual user we have to create a pointer to the User Object.
+                q1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
+                //q1.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: participant });
+                q2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
+                //q2.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: participant });
+
+                //This should be user for production.
+                //q1.equalTo = ('initiator', initiator);
+                //q1.equalTo = ('participant', participant);
+                //q2.equalTo = ('participant', initiator);
+                //q2.equalTo = ('initiator', participant);
+
+                var query = Parse.Query.or(q1, q2);
+                var html = "";
+
+                query.find({
+                    success: function (con) {
+                        //alert("Messages where retrieved.");
+
+                        for (var i in con) {
+                            html += "<div>" + con[i].id + "</div>"
+                        }
+
+                        $("#activeConversation").html(html);
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred.");
+                    }
+                });
+            }
+
+            function GetConversations() {
+                var htmlConversations = "";
+                var htmlMessages = "";
+                var username = "";
+
+                var userIDs = new Array();
+                var userNames = new Array();
+                var conversations = new Array();
+                var conversationIDs = new Array();
+
+                var currentIndex = 0;
+                var counter = 0;
+                var talkingTo = "";
+                var talkingTo2 = "";
+
+                var UserConversation = Parse.Object.extend("UserConversation");
+
+                var con1 = new Parse.Query(UserConversation);
+                var con2 = new Parse.Query(UserConversation);
+
+                con1.equalTo('initiator', { __type: 'Pointer', className: '_User', objectId: initiator });
+                con2.equalTo('participant', { __type: 'Pointer', className: '_User', objectId: initiator });
+
+                //We only want to display one conversation so
+                //make sure we only get the latest conversation.
+                var query = new Parse.Query.or(con1, con2);
+                query.descending("updatedAt");
+
+                query.find({
+                    success: function (convers) {
+                        for (var i in convers) {
+                            //Extract the person we are conversating with...
+                            talkingTo = initiator == convers[i].attributes.initiator.id ?
+                                                    convers[i].attributes.participant.id :
+                                                    convers[i].attributes.initiator.id;
+                            //Curious why the user object isn't available in the initiator or participator
+                            //since it isn't just work with the User ID (ObjectID).                                                        
+                            //Don't add duplicates.
+                            if ($.inArray(talkingTo, userIDs) < 0) {
+                                userIDs[counter] = talkingTo;
+                                conversations[counter] = convers[i];
+                                counter++;
+                            }
+                        }
+
+                        //Now that we have all the users we need to get the name.
+                        //----------------------------------------------------------------------------------------
+                        var User = Parse.Object.extend("User");
+                        var userQuery = new Parse.Query(User);
+
+                        userQuery.containedIn("objectId", userIDs);
+                        userQuery.find({
+                            success: function (friends) {
+                                for (var f in friends) {
+                                    currentIndex = $.inArray(friends[f].id, userIDs);
+
+                                    if (currentIndex >= 0) {
+                                        userNames[currentIndex] = friends[f].attributes.firstName;
+                                        //htmlConversations += "<div>UserID: " + userIDs[currentIndex] + " Username: " + userNames[currentIndex] + " ConversationID: " + conversations[currentIndex].id + "</div>";
+                                    }
+                                }
+                                //$("#myConversations").html(htmlConversations);
+
+                                //Finally get the latest messages.
+                                //--------------------------------------------------------------------------------
+                                var UserMessage = Parse.Object.extend("UserMessage");
+                                var userMessageQuery = new Parse.Query(UserMessage);
+
+                                userMessageQuery.descending("updatedAt");
+                                userMessageQuery.containedIn("userConversation", conversations);
+                                counter = 0;
+                                userMessageQuery.find({
+                                    success: function (msgs) {
+                                        for (var m in msgs) {
+                                            //htmlMessages += "<div>ConversationID: " + msgs[m].attributes.userConversation.id + " MessageID: " + msgs[m].id + " Message: " + msgs[m].attributes.message + "</div>";
+
+                                            var backcolor = "red";
+                                            if (counter % 2 == 0) {
+                                                backcolor = "blue";
+                                            }
+                                            else {
+                                                backcolor = "red";
+                                            }
+
+                                            //Only add in the latest message.
+                                            if ($.inArray(msgs[m].attributes.userConversation.id, conversationIDs) == -1) {
+                                                htmlConversations += "<div onclick='GetConversation(this);' id='" + msgs[m].attributes.userConversation.id + "' class='conversationContainer' style=" + '"background-color: ' + backcolor + '"' + "><div class='userPic'></div><div class='participantInfo'>" + userNames[counter] + "</div/><div class='latestMessage'>" + msgs[m].attributes.message + "</div><div class='msgTimeFrame'></div></div>";
+                                                conversationIDs[counter] = msgs[m].attributes.userConversation.id;
+                                                counter++;
+                                            }
+                                        }
+
+                                        $("#myConversations").html(htmlConversations);
+                                        //$("#activeConversation").html(htmlMessages);
+                                    },
+                                    error: function (object, error) {
+                                        alert("An error occurred");
+                                    }
+                                });
+                            },
+                            error: function (object, error) {
+                                alert("An error occurred");
+                            }
+                        });
+                        //----------------------------------------------------------------------------------------
+                    },
+                    error: function (object, error) {
+                        alert("An error occurred");
+                    }
+                });
+            }
+
+        </script>
+    </body>
+</html>
